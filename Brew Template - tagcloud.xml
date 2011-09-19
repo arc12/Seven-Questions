@@ -1,0 +1,5 @@
+﻿<tags>
+   <%for(tag.i in 1:length(tags.df[[1]])){%>
+      <a href="<%=tags.df[["link"]][tag.i]%>" target="ll" "rel="tag" style="font-size: <%=tags.df[["weight"]][tag.i]%>pt;" color="<%=tags.df[["color"]][tag.i]%>"><%=tags.df[["tag"]][tag.i]%></a>
+   <%}%>
+</tags>

@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="utf-8"?>
+<%if(isGadget){-%>
+<Module>
+  <ModulePrefs title="Seven Questions Term Clouds and Sentiment Analysis: <%=data.name%>" height="400">
+ <Require feature="dynamic-height"/>
+ </ModulePrefs>
+  <Content type="html">
+    <![CDATA[
+<%}else{-%>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<%}-%>
+<head>
+  <title>Seven Questions Term Clouds and Sentiment Analysis: <%=data.name%></title>
+  <meta name="AUTHOR" content="Adam Cooper" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <link rel="stylesheet" type="text/css" href="http://visapi-gadgets.googlecode.com/svn/trunk/termcloud/tc.css"/>
+  <script type="text/javascript" src="http://visapi-gadgets.googlecode.com/svn/trunk/termcloud/tc.js"></script>
+  <script type="text/javascript" src="http://www.google.com/jsapi"></script>
+    
+  <style type="text/css">
+	body { background-color: #efefef; padding: 10px;}
+	div.nice { width: 270px; float: left; padding: 10px;}
+	div.clear { clear: both;} 
+	div.reduced {font-size: 12px; font-family: arial; color: black; clear: both;}
+  </style>
+
+<!-- these are for the term cloud words -->
+ <style type="text/css">
+.term-cloud {font-family: arial; font-size: 10px;}
+.term-cloud-1 {font-size: 12px; color: #607ec5; }
+.term-cloud-2 {font-size: 14px; color: #607ec5; }
+.term-cloud-3 {font-size: 18px; color: #133b97; }
+.term-cloud-4 {font-size: 22px; color: #133b97; }
+.term-cloud-5 {font-size: 26px; color: #002a8b; }
+.term-cloud-6 {font-size: 32px; color: #002a8b; }
+.term-cloud-7 {font-size: 36px; color: #081122; }
+.term-cloud-8 {font-size: 40px; color: #081122; }
+.term-cloud-9 {font-size: 44px; color: #000000; }
+.term-cloud-error {font-family: arial; font-size: 10px; color: red; }
+.term-cloud-link {text-decoration: none; }
+.term-cloud-link:hover {text-decoration: underline;}
+</style>
+  
+  <script language="javascript" type="text/javascript">
+  	var pseudoQ;
+  	var qTitles;
+  	var nResponses;
+  	var responses;
+  	var tcArray;
+  	var radarArray;
+  	var termUses;
+  	var currentQ;
+  	var tcOptions = null;
+  	var radarOptions;
+  	var gadgets;
+
+	//options for imageChart to make it plot a radar with the appropriate category labels
+	function initOptions(){
+		radarOptions = {
+			chxl: '0:|<%=paste(names(sentiment.dics), collapse="|")%>',
+			chxp: '',
+			chxr: '',
+			chxs: '0,000000',
+			chf: 'bg,s,EFEFEF',
+			chxtc: '',
+			chxt: 'x',
+			chs: '250x250',
+			cht: 'r',
+			chco: 'FF0000',
+			chds: '0,1',
+			chls: '2,4,0',
+			chm: 'B,FF000080,0,0,0'
+		};
+	}
+
+	//data from R will be injected using Brew, the bulk coming over as JSON
+	// NB: R indexes start from 1, JS ones start at 0; all should be rebased to JS at the earliest point
+  	function initData(){
+  	pseudoQ = 7;
+
+	//the question headings, including the "all questions" pseudo-qestion
+	qTitles = <%=toJSON(question.titles)%>;
+	/*the responses as a 2-dim array. 1st index is response index, 2nd is question #
+		NB: no column for "all questions" */
+	nResponses = <%=n.responses%>;
+	responses = [
+	<%for(i in 1:n.responses){%>
+		<%=toJSON(as.character(responses[i,2:8]))-%>
+		<%if(i<n.responses){%>,<%}%>
+	<%}%>
+		];
+	/* a lookup-object to locate which respopnses to which questions contain a given term
+		object key is the term, object value is a ragged array
+		(1st index is question #, each row is a list of the indeces of responses where that question contains the term in the object key) */
+		termUses = {
+<%comma=FALSE-%>
+<%for (term in displayed.terms){-%>
+<%if(comma){%>,<%}%>
+"<%=term%>":
+	[<%for (q in 1:7){-%>
+<%=toJSON(as.list(which(as.matrix(dtm.tf.v[[q]][,Terms(dtm.tf.v[[q]])==term])>0)))-%>
+<%if(q<7){%>,<%}-%>
+<%}-%>]
+<%comma=TRUE-%>
+<%}-%>
+		};
+		
+	/* the data for the termclouds is an array of DataTable objects,
+		array index is the question number (including the pseudo-question for "all questions"
+		the DataTable is for direct use with the termcloud */
+	tcArray = new Array(8);
+	<%for (i in 1:8){%>
+	var dt = new google.visualization.DataTable();
+	dt.addColumn('string', 'Label');
+        dt.addColumn('number', 'Value');
+        dt.addRows([
+        <%terms<-occur.v[[i]]
+        for (t in 1:length(terms)){-%>
+        	['<%=names(terms[t])%>',<%=as.numeric(terms[t])-%>]
+<%if(t<length(terms)){%>,<%}%>
+<%}-%>
+        	]);
+		tcArray[<%=i-1%>] = dt;
+		dt = null;
+<%}%>
+	
+	/* The data for the radar plots is an array of DataTable objects
+		arrat index is the question number (incl the pseudo-question)
+		the DataTable is for direct use with the imagechart 
+		NB extra scores[q,1] ensures that the plot "joins-up" to make a loop */
+	radarArray = new Array(8);
+<%for (q in 1:8){%>
+	var dt = new google.visualization.DataTable();
+        dt.addColumn('number');
+        dt.addRows([
+<%for (s in 1:sentiment.count){-%>
+        	[<%=scores[q,s]%>],
+<%}-%>
+        	[<%=scores[q,1]%>]
+        	]);
+	radarArray[<%=q-1%>] = dt;
+	dt = null;
+<%}%>
+}
+</script>
+  
+<script language="javascript" type="text/javascript">
+	function loadPage(){
+		initOptions();
+		initData();
+		currentQ = pseudoQ;
+		document.getElementById('selQ').options[currentQ].selected=true;
+		draw();
+	}
+	// handler for a change of question in focus
+	function qChangeHandler(qIndex){
+		currentQ = qIndex;
+		document.getElementById('qdiv').innerHTML="";
+		draw();
+	}
+</script>
+</head>
+
+<body>
+<%if(!isGadget){-%>
+<h1>Seven Questions Term Clouds and Sentiment Analysis: <%=data.name%></h1>
+<%}-%>
+<div>
+Choose a question: <select id="selQ" onclick="qChangeHandler(this.options[this.selectedIndex].value);">
+<%for(i in 1:8){-%>
+<option value="<%=i-1%>"><%=question.titles[i]%></option>
+<%}-%>
+</select>
+</div>
+<div id="tcdiv" class="nice"></div>
+<div id="rdiv" class="nice"></div>
+<div id="qdiv" class="reduced">Click on a term to find how it was used.</div>
+
+<script type="text/javascript">
+	//google.load("visualization", "1");
+	google.load("visualization", "1", {packages:["imagechart"]});
+      	google.setOnLoadCallback(loadPage);
+      	var tc;
+      	var radar;
+      	function draw() {
+      		//term cloud
+        	tc = new TermCloud(document.getElementById('tcdiv'));
+        	tc.draw(tcArray[currentQ], tcOptions);//options can be {target: '_self'} etc
+        	google.visualization.events.addListener(tc, 'select', handleTermSelect);
+        	//radar plot
+        	radar = new google.visualization.ImageChart(document.getElementById('rdiv'));
+        	radar.draw(radarArray[currentQ], radarOptions);
+        	
+        	//if this is inside a google gadget then resize
+        	if(gadgets){
+			gadgets.window.adjustHeight();
+		}
+      	}
+	function handleTermSelect() {
+		var selection = tc.getSelection();
+  		if (selection.length > 0) {
+			selTerm=(tcArray[currentQ].getValue(selection[0].row,0));
+			//if the pseudo-question ("all") then aggregate, otherwise show responses for the current question
+			var ragArray = termUses[selTerm];
+			if(currentQ == pseudoQ){
+				resps='Responses (to any question) containing <b>'+selTerm+':</b><br/><br/>';
+				for (var q = 0; q<ragArray.length; q++) {
+					respIndexes=ragArray[q];
+					//an array of indexes
+					for(var r=0;r<respIndexes.length;r++){
+						resps+='"'+responses[respIndexes[r]-1][q]+'"<br/><br/>';
+					}
+				}
+			}else{
+				resps='Responses containing <b>'+selTerm+':</b><br/><br/>';
+				var respIndexes=ragArray[currentQ];
+				//an array of indexes
+				for(var r=0;r<respIndexes.length;r++){
+					resps+='"'+responses[respIndexes[r]-1][currentQ]+'"<br/><br/>';
+				}
+			}
+			resps = resps.replace('\n','<br/>');
+			document.getElementById('qdiv').innerHTML = resps;
+			//if this is inside a google gadget then resize
+        		if(gadgets){
+				gadgets.window.adjustHeight();
+			}
+		}
+	}
+
+    </script>
+
+</body>
+<%if(isGadget){-%>
+    ]]>
+  </Content>
+</Module>
+<%}else{-%>
+</html>
+<%}%>

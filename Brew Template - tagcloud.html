@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title><%=data.name%></title>
+	<meta http-equiv="Content-Type" content="text/html" />
+	<!-- See http://www.roytanck.com/2008/05/19/how-to-repurpose-my-tag-cloud-flash-movie/ -->
+	<script type="text/javascript" src="../../swfobject.js"></script>
+	<style type="text/css">
+		body { background-color: #eee; padding: 20px; } 
+	</style>
+</head>
+
+<body>
+<H1>Seven Questions Tag Clouds: <%=data.name%></H1>
+Choose a question: <select onclick="changeCloud(this.options[this.selectedIndex].value);">
+<%for(i in 1:7){-%>
+<option value="tagcloud_<%=i%>.xml"><%=names(occur.v)[i]%></option>
+<%}-%>
+<option value="tagcloud_8.xml" selected><%=names(occur.v)[8]%></option>
+</select>
+<table><tr><td>
+<div id="cloud">Requires Flash and Javascript.</div>
+</td>
+<td><iframe name="ll" frameborder=1 width="300" height="600"></iframe>
+</td></tr></table>
+
+	<script type="text/javascript">
+		var so = new SWFObject("../../tagcloud.swf", "tagcloud", "800", "600", "7", "#ffffff");
+		// uncomment next line to enable transparency
+		so.addParam("wmode", "transparent");
+		so.addVariable("hicolor", "0x000000");
+		so.addVariable("tspeed", "60");
+		so.addVariable("distr", "true");
+		so.addVariable("xmlpath", "tagcloud_8.xml");
+		so.write("cloud");
+		function changeCloud(xmlFile){
+			so.addVariable("xmlpath", xmlFile);
+			so.write("cloud");
+		}
+	</script>
+
+
+<hr/>
+Thanks to <a href="http://www.roytanck.com/2008/05/19/how-to-repurpose-my-tag-cloud-flash-movie/">Roy Tanck</a> for the Flash cloud.
+
+
+</body>
+
+</html>
